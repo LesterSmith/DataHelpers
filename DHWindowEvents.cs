@@ -18,7 +18,7 @@ namespace DataHelpers
         {
             using (var cmd = new SqlCommand("DevTrkr..InsertWindowEvent"))
             {
-                cmd.Parameters.AddWithValue("@ID", Guid.NewGuid());
+                cmd.Parameters.AddWithValue("@ID", item.ID);
                 cmd.Parameters.AddWithValue("@StartTime", item.StartTime);
                 cmd.Parameters.AddWithValue("@WindowTitle", item.WindowTitle);
                 cmd.Parameters.AddWithValue("@AppName", item.AppName);
@@ -29,7 +29,8 @@ namespace DataHelpers
                 cmd.Parameters.AddWithValue("@UserName", item.UserName);
                 cmd.Parameters.AddWithValue("@MachineName", item.MachineName);
                 cmd.Parameters.AddWithValue("@UserDisplayName", item.UserDisplayName);
-                cmd.Parameters.AddWithValue("@SyncID", item.SyncID);
+                if (!string.IsNullOrWhiteSpace(item.SyncID))
+                    cmd.Parameters.AddWithValue("@SyncID", item.SyncID);
                 return UpdateDatabase(cmd);
             }
         }
@@ -119,6 +120,17 @@ namespace DataHelpers
                 cmd.Parameters.AddWithValue("@UnknownKey", unknownKey);
                 cmd.Parameters.AddWithValue("@Machine", machineName);
                 cmd.Parameters.AddWithValue("@UserName", userName);
+                return UpdateDatabase(cmd);
+            }
+        }
+
+        public int UpdateWindowEventsWithSyncID(string devPrjName, string currentApp, string syncID)
+        {
+            using (var cmd = new SqlCommand("Devtrkr..UpdateWindowEventsWithSyncID"))
+            {
+                cmd.Parameters.AddWithValue("@DevProjectName", devPrjName);
+                cmd.Parameters.AddWithValue("@AppName", currentApp);
+                cmd.Parameters.AddWithValue("@SyncID", syncID);
                 return UpdateDatabase(cmd);
             }
         }

@@ -34,7 +34,7 @@ namespace DataHelpers
                          Machine = dr["Machine"] == DBNull.Value ? string.Empty : (string)dr["Machine"],
                          UserName = dr["UserName"] == DBNull.Value ? string.Empty : (string)dr["UserName"],
                          IDEAppName = dr["IDEAppName"] == DBNull.Value ? string.Empty : (string)dr["IDEAppName"],
-                         CreatedDate = dr["CreatedDate"] == DBNull.Value ? DateTime.Now : (DateTime)dr["CreatedDate"],
+                         CreatedDate = dr["CreatedDate"] == DBNull.Value ? DateTime.MinValue : (DateTime)dr["CreatedDate"],
                          CompletedDate = dr["CompletedDate"] == DBNull.Value ? DateTime.Now : (DateTime)dr["CompletedDate"],
                          DatabaseProject = dr["DatabaseProject"] == DBNull.Value ? false : (bool)dr["DatabaseProject"],
                          SyncID = dr["SyncID"] == DBNull.Value ? string.Empty : dr["SyncID"].ToString(),
@@ -44,6 +44,7 @@ namespace DataHelpers
                      }).ToList();
             }
         }
+
 
         public List<DevProjPath> GetDevProjects()
         {
@@ -62,7 +63,7 @@ namespace DataHelpers
                          UserName = dr["UserName"] == DBNull.Value ? string.Empty : (string)dr["UserName"],
                          IDEAppName = dr["IDEAppName"] == DBNull.Value ? string.Empty : (string)dr["IDEAppName"],
                          CreatedDate = dr["CreatedDate"] == DBNull.Value ? DateTime.Now : (DateTime)dr["CreatedDate"],
-                         CompletedDate = dr["CompletedDate"] == DBNull.Value ? DateTime.Now : (DateTime)dr["CompletedDate"],
+                         CompletedDate = dr["CompletedDate"] == DBNull.Value ? DateTime.MinValue : (DateTime)dr["CompletedDate"],
                          DatabaseProject = dr["DatabaseProject"] == DBNull.Value ? false : (bool)dr["DatabaseProject"],
                          SyncID = dr["SyncID"] == DBNull.Value ? string.Empty : dr["SyncID"].ToString(),
                          ProjFileExt = dr["ProjFileExt"] == DBNull.Value ? string.Empty : (string)dr["ProjFileExt"],
@@ -75,7 +76,7 @@ namespace DataHelpers
         public ProjectsAndSyncs GetProjectsAndSyncByName(string devProjectName)
         {
             ProjectsAndSyncs ps = new ProjectsAndSyncs();
-            using (var cmd = new SqlCommand("DevTrkr..GetProjectsAndSyncByName"))
+            using (var cmd = new SqlCommand("DevTrkr..GetDevProjectsAndSyncByName"))
             {
                 cmd.Parameters.AddWithValue("@DevProjectName", devProjectName);
                 var ds = GetDataSet(cmd);
@@ -181,13 +182,22 @@ namespace DataHelpers
 
         public int InsertProjectSyncObject(ProjectSync item)
         {
-            using (var cmd = new SqlCommand("DevTrkr..InsertProjectSyncObject"))
+            using (var cmd = new SqlCommand("DevTrkr..InsertUpdateProjectSync"))
             {
                 cmd.Parameters.AddWithValue("@ID", item.ID);
                 cmd.Parameters.AddWithValue("@DevProjectName", item.DevProjectName);
                 cmd.Parameters.AddWithValue("@CreatedDate", item.CreatedDate);
                 cmd.Parameters.AddWithValue("@DevProjectCount", item.DevProjectCount);
                 cmd.Parameters.AddWithValue("@GitURL", item.GitURL);
+                return UpdateDatabase(cmd);
+            }
+        }
+
+        public int DeleteDuplicateProjectFile(string iD)
+        {
+            using (var cmd = new SqlCommand("DevTrkr..DeleteDuplicateProjectFile"))
+            {
+                cmd.Parameters.AddWithValue("@ID", iD);
                 return UpdateDatabase(cmd);
             }
         }
@@ -266,6 +276,16 @@ namespace DataHelpers
                             IsDBEngine = dr["IsDBEngine"].GetNotDBNullBool()
                         }).ToList();
                 return list;
+            }
+        }
+
+        public int UpdateProjectSyncWithGitURL(ProjectSync ps)
+        {
+            using (var cmd = new SqlCommand("DevTrkr..UpdateProjectSyncWithGitURL"))
+            {
+                cmd.Parameters.AddWithValue("@ID", ps.ID);
+                cmd.Parameters.AddWithValue("@GitURL", ps.GitURL);
+                return UpdateDatabase(cmd);
             }
         }
 
@@ -458,7 +478,8 @@ namespace DataHelpers
                 cmd.Parameters.AddWithValue("@UserName", item.UserName);
                 cmd.Parameters.AddWithValue("@IDEAppName", item.IDEAppName);
                 cmd.Parameters.AddWithValue("@CreatedDate", item.CreatedDate);
-                cmd.Parameters.AddWithValue("@CompletedDate", item.CompletedDate);
+                if (item.CompletedDate != null && item.CompletedDate > item.CreatedDate)
+                    cmd.Parameters.AddWithValue("@CompletedDate", item.CompletedDate);
                 cmd.Parameters.AddWithValue("@DatabaseProject", item.DatabaseProject);
                 cmd.Parameters.AddWithValue("@SyncID", item.SyncID);
                 cmd.Parameters.AddWithValue("@ProjFileExt", item.ProjFileExt);
@@ -527,6 +548,46 @@ namespace DataHelpers
                 cmd.Parameters.AddWithValue("@SyncID", item.SyncID);
                 cmd.Parameters.AddWithValue("@GitURL", item.GitURL);
                 return UpdateDatabase(cmd);
+            }
+        }
+
+        public int UpdateProjectFilesWithGitURL(string gitUrl, string devProjectName, string syncID)
+        {
+            using (var cmd = new SqlCommand("DevTrkr..UpdateProjectFilesWithGitURL"))
+            {
+                cmd.Parameters.AddWithValue("@GitURL", gitUrl);
+                cmd.Parameters.AddWithValue("@DevProjectName", devProjectName);
+                cmd.Parameters.AddWithValue("@SyncID", syncID);
+                return UpdateDatabase(cmd);
+            }
+        }
+
+        public List<ProjectFiles> GetDuplicateProjectFiles(string devProjectName, string syncID)
+        {
+            using (var cmd = new SqlCommand("DevTrkr..GetDuplicateProjectFiles"))
+            {
+                cmd.Parameters.AddWithValue("@DevProjectName", devProjectName);
+                cmd.Parameters.AddWithValue("@SyncID", syncID);
+                var dt = GetDataTable(cmd);
+                return (from DataRow dr in dt.Rows
+                        select new BusinessObjects.ProjectFiles
+                        {
+                            ID = dr["ID"].ToString(),
+                            DevProjectName = (string)dr["DevProjectName"],
+                            RelativeFileName = (string)dr["RelativeFileName"],
+                            SyncID = dr["SyncID"] == DBNull.Value ? string.Empty : dr["SyncID"].ToString(),
+                            GitURL = dr["GitURL"] == DBNull.Value ? string.Empty : (string)dr["GitURL"],
+                            CodeLines = (int)dr["CodeLines"],
+                            CommentLines = (int)dr["CommentLines"],
+                            BlankLines = (int)dr["BlankLines"],
+                            DesignerLines = (int)dr["DesignerLines"],
+                            UpdateCount = (int)dr["UpdateCount"],
+                            CreatedDate = (DateTime)dr["CreatedDate"],
+                            CreatedBy = (string)dr["CreatedBy"],
+                            LastUpdate = dr["LastUpdate"] == DBNull.Value ? DateTime.Now : (DateTime)dr["LastUpdate"],
+                            LastUpdatedBy = dr["LastUpdatedBy"] == DBNull.Value ? string.Empty : (string)dr["LastUpdatedBy"]
+                        }).ToList();
+                
             }
         }
     }
