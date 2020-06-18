@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Data;
 using System.Data.SqlClient;
 using BusinessObjects; 
@@ -82,12 +78,13 @@ namespace DataHelpers
             }
         }
 
-        public int UpadateProjAndPathInWindowEvent(string id, string devProjectName)
+        public int UpadateProjAndPathInWindowEvent(string id, string devProjectName, string syncId)
         {
             using (var cmd = new SqlCommand("DevTrkr..UpadateDevProjNameInWindowEvent"))
             {
                 cmd.Parameters.AddWithValue("@ID", id);
                 cmd.Parameters.AddWithValue("@DevProjectName", devProjectName);
+                cmd.Parameters.AddWithValue("@SyncID", syncId);
                 return UpdateDatabase(cmd);
             }
         }

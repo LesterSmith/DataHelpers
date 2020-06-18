@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Data;
 using System.Data.SqlClient;
 using BusinessObjects;
-
+using System.Diagnostics;
+using AppWrapper;
 namespace DataHelpers
 {
     public class DHMisc : DataHelperBase
@@ -45,6 +45,75 @@ namespace DataHelpers
             }
         }
 
+        /// <summary>
+        /// NOTE: there could be multiple collaborative projects with the same name
+        /// this code must handle that situation
+        /// </summary>
+        public ProjAndSyncReport GetProjectsForReporting()
+        {
+            using (var cmd = new SqlCommand("DevTrkr..GetProjectsForReporting"))
+            {
+                var ds = GetDataSet(cmd);
+                ProjAndSyncReport rptData = new ProjAndSyncReport();
+                //rptData.Projects =
+                //    (from DataRow dr in ds.Tables[0].Rows
+                //     select new ReportProjects { 
+                //                                 DevProjectCount = (int)dr["DevProjectCount"], 
+                //                                 DevProjectName = (string)dr["DevProjectName"], 
+                //                                 SyncID = Convert.ToString(dr["SyncID"]), 
+                //                                 UserName = (string)dr["UserName"],
+                //                                 DevSLNPath = dr["DevSLNPath"] != DBNull.Value ? (string)dr["DevSLNPath"] : string.Empty
+                //                                }).ToList();
+
+                List<ReportProjects> list = new List<ReportProjects>();
+                // these variables work to handle multiple collaborative projs same name
+                string projName = string.Empty;
+                string syncID = string.Empty;
+                foreach (DataRow dr in ds.Tables[0].Rows)
+                {
+                    string devProjName = dr["DevProjectName"].ToString();
+                    string sync = Convert.ToString(dr["SyncID"]);
+                    if (projName == devProjName && sync == syncID) continue;
+                    projName = devProjName;
+                    syncID = sync;
+                    list.Add(new ReportProjects
+                            {
+                                DevProjectName = (string)dr["DevProjectName"],
+                                DevProjectCount = (int)dr["DevProjectCount"],
+                                SyncID = Convert.ToString(dr["SyncID"]),
+                                UserName = (string)dr["UserName"],
+                                DevSLNPath = dr["DevSLNPath"] != DBNull.Value ? (string)dr["DevSLNPath"] : string.Empty,
+                                GitURL = dr["GitURL"] != DBNull.Value ? (string)dr["GitURL"] : string.Empty
+                            });
+                }
+                rptData.Projects = list;
+
+                rptData.Names =
+                    (from DataRow dr in ds.Tables[1].Rows
+                     select new ReportUserNames 
+                     { UserName = (string)dr["UserName"], 
+                       DisplayName = (string)dr["UserDisplayName"] 
+                     }).ToList();
+                return rptData;
+            }
+        }
+
+        public List<ProjectSync> GetProjectSyncs()
+        {
+            using (var cmd = new SqlCommand("DevTrkr..GetProjectSyncs"))
+            {
+                var dt = GetDataTable(cmd);
+                return (from DataRow dr in dt.Rows
+                         select new ProjectSync
+                         {
+                             ID = dr["ID"].ToString(),
+                             DevProjectName = (string)dr["DevProjectName"],
+                             CreatedDate = (DateTime)dr["CreatedDate"],
+                             DevProjectCount = (int)dr["DevProjectCount"],
+                             GitURL = dr["GitURL"] == DBNull.Value ? string.Empty : (string)dr["GitURL"]
+                         }).ToList();
+            }
+        }
 
         public List<DevProjPath> GetDevProjects()
         {
@@ -469,6 +538,11 @@ namespace DataHelpers
 
         public int InsertUpdateDevProject(DevProjPath item)
         {
+            if (string.IsNullOrWhiteSpace(item.DevProjectName))
+            {
+                Util.LogError("DevProjectName is empty");
+                return -1;
+            }
             using (var cmd = new SqlCommand("DevTrkr..InsertUpdateDevProject"))
             {
                 cmd.Parameters.AddWithValue("@ID", item.ID);
@@ -590,5 +664,6 @@ namespace DataHelpers
                 
             }
         }
+
     }
 }
