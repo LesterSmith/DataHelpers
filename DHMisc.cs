@@ -6,7 +6,6 @@ using System.Data;
 using System.Data.SqlClient;
 using BusinessObjects;
 using System.Diagnostics;
-using AppWrapper;
 namespace DataHelpers
 {
     public class DHMisc : DataHelperBase
@@ -55,16 +54,6 @@ namespace DataHelpers
             {
                 var ds = GetDataSet(cmd);
                 ProjAndSyncReport rptData = new ProjAndSyncReport();
-                //rptData.Projects =
-                //    (from DataRow dr in ds.Tables[0].Rows
-                //     select new ReportProjects { 
-                //                                 DevProjectCount = (int)dr["DevProjectCount"], 
-                //                                 DevProjectName = (string)dr["DevProjectName"], 
-                //                                 SyncID = Convert.ToString(dr["SyncID"]), 
-                //                                 UserName = (string)dr["UserName"],
-                //                                 DevSLNPath = dr["DevSLNPath"] != DBNull.Value ? (string)dr["DevSLNPath"] : string.Empty
-                //                                }).ToList();
-
                 List<ReportProjects> list = new List<ReportProjects>();
                 // these variables work to handle multiple collaborative projs same name
                 string projName = string.Empty;
@@ -83,8 +72,9 @@ namespace DataHelpers
                                 SyncID = Convert.ToString(dr["SyncID"]),
                                 UserName = (string)dr["UserName"],
                                 DevSLNPath = dr["DevSLNPath"] != DBNull.Value ? (string)dr["DevSLNPath"] : string.Empty,
-                                GitURL = dr["GitURL"] != DBNull.Value ? (string)dr["GitURL"] : string.Empty
-                            });
+                                GitURL = dr["GitURL"] != DBNull.Value ? (string)dr["GitURL"] : string.Empty,
+                                DatabaseProject = dr["DatabaseProject"] == DBNull.Value ? false : (bool)dr["DatabaseProject"]
+                    });
                 }
                 rptData.Projects = list;
 
@@ -203,51 +193,34 @@ namespace DataHelpers
             }
         }
 
-        //public ProjectsAndSync GetDevProjectByNameAndGitURL(string devProjectName, string gitURL)
-        //{
-        //    ProjectsAndSync ps = new ProjectsAndSync();
-        //    using (var cmd = new SqlCommand("DevTrkr..GetDevProjectByNameAndGitURL"))
-        //    {
-        //        cmd.Parameters.AddWithValue("@DevProjectName", devProjectName);
-        //        cmd.Parameters.AddWithValue("@GitURL", gitURL);
-        //        var ds = GetDataSet(cmd);
-        //        var list =
-        //            (from DataRow dr in ds.Tables[0].Rows
-        //             select new DevProjPath
-        //             {
-        //                 ID = dr["ID"].ToString(),
-        //                 DevProjectName = (string)dr["DevProjectName"],
-        //                 DevProjectPath = dr["DevProjectPath"] == DBNull.Value ? string.Empty : (string)dr["DevProjectPath"],
-        //                 ITProjectID = dr["ITProjectID"] == DBNull.Value ? string.Empty : (string)dr["ITProjectID"],
-        //                 Machine = dr["Machine"] == DBNull.Value ? string.Empty : (string)dr["Machine"],
-        //                 UserName = dr["UserName"] == DBNull.Value ? string.Empty : (string)dr["UserName"],
-        //                 IDEAppName = dr["IDEAppName"] == DBNull.Value ? string.Empty : (string)dr["IDEAppName"],
-        //                 CreatedDate = dr["CreatedDate"] == DBNull.Value ? DateTime.Now : (DateTime)dr["CreatedDate"],
-        //                 CompletedDate = dr["CompletedDate"] == DBNull.Value ? DateTime.Now : (DateTime)dr["CompletedDate"],
-        //                 DatabaseProject = dr["DatabaseProject"] == DBNull.Value ? false : (bool)dr["DatabaseProject"],
-        //                 SyncID = dr["SyncID"] == DBNull.Value ? string.Empty : dr["SyncID"].ToString(),
-        //                 ProjFileExt = dr["ProjFileExt"] == DBNull.Value ? string.Empty : (string)dr["ProjFileExt"],
-        //                 DevSLNPath = dr["DevSLNPath"] == DBNull.Value ? string.Empty : (string)dr["DevSLNPath"],
-        //                 GitURL = dr["GitURL"] == DBNull.Value ? string.Empty : (string)dr["GitURL"]
-        //             }).ToList();
-        //        ps.ProjectList = list;
-
-        //        if (ds.Tables[1].Rows.Count > 0)
-        //        {
-        //            DataTable dt = ds.Tables[1];
-        //            DataRow dr = dt.Rows[0];
-        //            ps.ProjectSync = new ProjectSync
-        //            {
-        //                ID = dr["ID"].ToString(),
-        //                DevProjectName = (string)dr["DevProjectName"],
-        //                CreatedDate = (DateTime)dr["CreatedDate"],
-        //                DevProjectCount = (int)dr["DevProjectCount"],
-        //                GitURL = dr["GitURL"] == DBNull.Value ? string.Empty : (string)dr["GitURL"]
-        //            };
-        //        }
-        //    }
-        //    return ps;
-        //}
+        public DevProjPath GetDevDBProjectByName(string devProjectName)
+        {
+            using (var cmd = new SqlCommand("DevTrkr..GetDevDBProjectByName"))
+            {
+                cmd.Parameters.AddWithValue("@DevProjectName", devProjectName);
+                var dt = GetDataTable(cmd);
+                if (dt.Rows.Count.Equals(0))
+                    return null;
+                DataRow dr = dt.Rows[0];
+                DevProjPath item = new DevProjPath
+                {
+                    ID = dr["ID"].ToString(),
+                    DevProjectName = (string)dr["DevProjectName"],
+                    DevProjectPath = dr["DevProjectPath"] == DBNull.Value ? string.Empty : (string)dr["DevProjectPath"],
+                    Machine = dr["Machine"] == DBNull.Value ? string.Empty : (string)dr["Machine"],
+                    UserName = dr["UserName"] == DBNull.Value ? string.Empty : (string)dr["UserName"],
+                    IDEAppName = dr["IDEAppName"] == DBNull.Value ? string.Empty : (string)dr["IDEAppName"],
+                    CreatedDate = dr["CreatedDate"] == DBNull.Value ? DateTime.Now : (DateTime)dr["CreatedDate"],
+                    CompletedDate = dr["CompletedDate"] == DBNull.Value ? DateTime.Now : (DateTime)dr["CompletedDate"],
+                    DatabaseProject = dr["DatabaseProject"] == DBNull.Value ? false : (bool)dr["DatabaseProject"],
+                    SyncID = dr["SyncID"] == DBNull.Value ? string.Empty : dr["SyncID"].ToString(),
+                    ProjFileExt = dr["ProjFileExt"] == DBNull.Value ? string.Empty : (string)dr["ProjFileExt"],
+                    DevSLNPath = dr["DevSLNPath"] == DBNull.Value ? string.Empty : (string)dr["DevSLNPath"],
+                    GitURL = dr["GitURL"] == DBNull.Value ? string.Empty : (string)dr["GitURL"]
+                };
+                return item;
+            }
+        }
 
         public int InsertProjectSyncObject(ProjectSync item)
         {
@@ -540,7 +513,7 @@ namespace DataHelpers
         {
             if (string.IsNullOrWhiteSpace(item.DevProjectName))
             {
-                Util.LogError("DevProjectName is empty");
+                Debug.WriteLine("DevProjectName is empty");
                 return -1;
             }
             using (var cmd = new SqlCommand("DevTrkr..InsertUpdateDevProject"))
@@ -665,5 +638,18 @@ namespace DataHelpers
             }
         }
 
+        public int WriteErrorLog(ErrorLog item)
+        {
+            using (var cmd = new SqlCommand("DevTrkr..InsertErrorLog"))
+            {
+                cmd.Parameters.AddWithValue("@Module", item.Module);
+                cmd.Parameters.AddWithValue("@Method", item.Method);
+                cmd.Parameters.AddWithValue("@Message", item.Message);
+                cmd.Parameters.AddWithValue("@DateCreated", item.DateCreated);
+                cmd.Parameters.AddWithValue("@Machine", item.Machine);
+                cmd.Parameters.AddWithValue("@Username", item.Username);
+                return UpdateDatabase(cmd);
+            }
+        }
     }
 }
