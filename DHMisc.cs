@@ -6,6 +6,9 @@ using System.Data;
 using System.Data.SqlClient;
 using BusinessObjects;
 using System.Diagnostics;
+using DataHelpers;
+using AppWrapper;
+
 namespace DataHelpers
 {
     public class DHMisc : DataHelperBase
@@ -41,6 +44,27 @@ namespace DataHelpers
                          DevSLNPath = dr["DevSLNPath"] == DBNull.Value ? string.Empty : (string)dr["DevSLNPath"],
                          GitURL = dr["GitURL"] == DBNull.Value ? string.Empty : (string)dr["GitURL"]
                      }).ToList();
+            }
+        }
+
+        public PermissionLevel GetCurrentUserPermissionLevel(string userName)
+        {
+            using (var cmd = new SqlCommand("DevTrkr..GetUserByUserName"))
+            {
+                cmd.Parameters.AddWithValue("@Username", userName.EncryptString());
+                var dt = GetDataTable(cmd);
+                if (dt.Rows.Count > 0)
+                {
+                    switch (dt.Rows[0]["PermissionLevel"].GetNotDBNull().DecryptString().ToLower())
+                    {
+                        case "admin": return PermissionLevel.Admin;
+                        case "manager": return PermissionLevel.Manager;
+                        case "developer": return PermissionLevel.Developer;
+                        default: return PermissionLevel.Developer;
+                    }
+                }
+                else
+                    return PermissionLevel.Admin;
             }
         }
 
@@ -172,6 +196,24 @@ namespace DataHelpers
                         GitURL = dr["GitURL"] == DBNull.Value ? string.Empty : (string)dr["GitURL"]
                     }).ToList();
                 return ps;
+            }
+        }
+
+        public int DeleteProjectSync(ProjectSync item)
+        {
+            using (var cmd = new SqlCommand("DevTrkr..DeleteProjectSync"))
+            {
+                cmd.Parameters.AddWithValue("@ID", item.ID);
+                return UpdateDatabase(cmd);
+            }
+        }
+
+        public int DeletePermissions(User user)
+        {
+            using (var cmd = new SqlCommand("DevTrkr..DeletePermission"))
+            {
+                cmd.Parameters.AddWithValue("@ID", user.ID);
+                return UpdateDatabase(cmd);
             }
         }
 
@@ -377,6 +419,16 @@ namespace DataHelpers
             }
         }
 
+        public int UpdateProjetSyncWithProjectCount(ProjectSync item)
+        {
+            using (var cmd = new SqlCommand("DevTrkr..UpdateProjetSyncWithProjectCount"))
+            {
+                cmd.Parameters.AddWithValue("@ID", item.ID);
+                cmd.Parameters.AddWithValue("@DevProjectCount", item.DevProjectCount);
+                return UpdateDatabase(cmd);
+            }
+        }
+
         public int DeleteConfigOption(string iD)
         {
             using (var cmd = new SqlCommand("DevTrkr..DeleteConfigOption"))
@@ -571,6 +623,46 @@ namespace DataHelpers
                             DevSLNPath = dr["DevSLNPath"] == DBNull.Value ? string.Empty : (string)dr["DevSLNPath"],
                             GitURL = dr["GitURL"] == DBNull.Value ? string.Empty : (string)dr["GitURL"]
                         }).ToList();
+            }
+        }
+
+        public List<User> GetUsers()
+        {
+            using (var cmd = new SqlCommand("DevTrkr..GetUsers"))
+            {
+                var dt = GetDataTable(cmd);
+
+                return
+                (from DataRow dr in dt.Rows
+                select new User 
+                {
+                    ID = dr["ID"].ToString(),
+                    FirstName = dr["FirstName"].ToString().DecryptString(),
+                    LastName = dr["LastName"].ToString().DecryptString(),
+                    UserName = dr["UserName"].ToString().DecryptString(),
+                    PermissionLevel = dr["PermissionLevel"].ToString().DecryptString(),
+                    CreatedDate = (DateTime)dr["CreatedDate"],
+                    CreatedBy = (string)dr["CreatedBy"].ToString().DecryptString(),
+                    UpdatedDate = dr["UpdatedDate"] == DBNull.Value ? DateTime.Now : (DateTime)dr["UpdatedDate"],
+                    UpdatedBy = dr["UpdatedBy"] == DBNull.Value ? string.Empty : dr["UpdatedBy"].ToString().DecryptString()
+                }).ToList();
+            }
+        }
+
+        public int InsertUpdateUser(User item)
+        {
+            using (var cmd = new SqlCommand("DevTrkr..InsertUpdateUsers"))
+            {
+                cmd.Parameters.AddWithValue("@ID", item.ID);
+                cmd.Parameters.AddWithValue("@FirstName", item.FirstName.EncryptString());
+                cmd.Parameters.AddWithValue("@LastName", item.LastName.EncryptString());
+                cmd.Parameters.AddWithValue("@UserName", item.UserName.EncryptString());
+                cmd.Parameters.AddWithValue("@PermissionLevel", item.PermissionLevel.EncryptString());
+                //cmd.Parameters.AddWithValue("@CreatedDate", item.CreatedDate);
+                //cmd.Parameters.AddWithValue("@CreatedBy", item.CreatedBy);
+                //cmd.Parameters.AddWithValue("@UpdatedDate", item.UpdatedDate);
+                cmd.Parameters.AddWithValue("@UpdatedBy", item.UpdatedBy.EncryptString());
+                return UpdateDatabase(cmd);
             }
         }
 
